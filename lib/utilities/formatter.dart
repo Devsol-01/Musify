@@ -73,6 +73,47 @@ Map<String, dynamic> returnSongLayout(
   'isLive': song.isLive,
 };
 
+Map<String, dynamic> returnLocalSongLayout(
+  Map<String, dynamic> localSong,
+  int index,
+) {
+  final title = localSong['title'] as String? ?? 'Unknown';
+  final artist = localSong['artist'] as String? ?? 'Unknown Artist';
+  final duration = localSong['duration'] as int? ?? 0;
+  final path = localSong['path'] as String? ?? '';
+  final id = localSong['id'] as int? ?? 0;
+  final albumArtUri = localSong['albumArtUri'] as String?;
+  final albumArtBase64 = localSong['albumArtBase64'] as String?;
+
+  return {
+    'id': index,
+    'localId': id, // Keep the original MediaStore ID
+    'ytid': null, // No YouTube ID for local songs
+    'title': title,
+    'artist': artist,
+    'image': albumArtUri, // Use album art URI
+    'lowResImage': albumArtUri,
+    'highResImage': albumArtUri,
+    'imageBase64': albumArtBase64, // Base64 encoded image
+    'duration': duration ~/ 1000, // Convert milliseconds to seconds
+    'isLive': false,
+    'isLocal': true, // Flag to identify local songs
+    'audioPath': path, // File path for playback
+    'artworkPath': null, // Will be set if artwork is available as file
+  };
+}
+
+// Batch converter for multiple songs
+List<Map<String, dynamic>> convertLocalSongsToLayout(
+  List<Map<String, dynamic>> localSongs,
+) {
+  return localSongs.asMap().entries.map((entry) {
+    final index = entry.key;
+    final song = entry.value;
+    return returnLocalSongLayout(song, index);
+  }).toList();
+}
+
 String formatDuration(int audioDurationInSeconds) {
   final duration = Duration(seconds: audioDurationInSeconds);
 

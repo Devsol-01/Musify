@@ -19,9 +19,7 @@
  *     please visit: https://github.com/gokadzev/Musify
  */
 
-import 'dart:io';
-
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:audio_service/audio_service.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:musify/API/musify.dart';
@@ -30,7 +28,7 @@ import 'package:musify/main.dart';
 import 'package:musify/utilities/common_variables.dart';
 import 'package:musify/utilities/flutter_toast.dart';
 import 'package:musify/utilities/formatter.dart';
-import 'package:musify/widgets/no_artwork_cube.dart';
+import 'package:musify/widgets/song_artwork.dart';
 
 class SongBar extends StatefulWidget {
   const SongBar(
@@ -73,6 +71,7 @@ class _SongBarState extends State<SongBar> {
   late final String? _artworkPath;
   late final String _lowResImageUrl;
   late final String _ytid;
+  late final bool _isLocalSong;
 
   @override
   void initState() {
@@ -84,6 +83,7 @@ class _SongBarState extends State<SongBar> {
     _artworkPath = widget.song['artworkPath'];
     _lowResImageUrl = widget.song['lowResImage']?.toString() ?? '';
     _ytid = widget.song['ytid'] ?? '';
+    _isLocalSong = widget.song['isLocal'] == true; // Add this line
 
     // Initialize ValueNotifiers only once
     _songLikeStatus = ValueNotifier(isSongAlreadyLiked(_ytid));
@@ -159,26 +159,46 @@ class _SongBarState extends State<SongBar> {
     final isDurationAvailable =
         widget.showMusicDuration && widget.song['duration'] != null;
 
-    if (_artworkPath != null) {
-      return _OfflineArtwork(artworkPath: _artworkPath, size: size);
-    }
+    final _mediaItem = MediaItem(
+      id: widget.song['id']?.toString() ?? '',
+      title: _songTitle,
+      artist: _songArtist,
+      artUri: _lowResImageUrl.isNotEmpty ? Uri.parse(_lowResImageUrl) : null,
+      extras: {
+        'isLocal': _isLocalSong,
+        'imageBase64': widget.song['imageBase64'],
+        'artWorkPath': _artworkPath,
+      },
+    );
 
-    return _OnlineArtwork(
-      lowResImageUrl: _lowResImageUrl,
+    return SongArtworkWidget(
+      metadata: _mediaItem,
       size: size,
-      isDurationAvailable: isDurationAvailable,
-      primaryColor: primaryColor,
-      duration: widget.song['duration'],
+      borderRadius: 18,
+      errorWidgetIconSize: 30,
+      showDuration: isDurationAvailable,
+      duration:
+          isDurationAvailable ? formatDuration(widget.song['duration']) : null,
     );
   }
 
   Widget _buildActionButtons(BuildContext context, Color primaryColor) {
-    return PopupMenuButton<String>(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      color: Theme.of(context).colorScheme.surface,
-      icon: Icon(FluentIcons.more_horizontal_24_filled, color: primaryColor),
-      onSelected: (value) => _handleMenuAction(context, value),
-      itemBuilder: (context) => _buildMenuItems(context, primaryColor),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        PopupMenuButton<String>(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          color: Theme.of(context).colorScheme.surface,
+          icon: Icon(
+            FluentIcons.more_horizontal_24_filled,
+            color: primaryColor,
+          ),
+          onSelected: (value) => _handleMenuAction(context, value),
+          itemBuilder: (context) => _buildMenuItems(context, primaryColor),
+        ),
+      ],
     );
   }
 
@@ -235,7 +255,8 @@ class _SongBarState extends State<SongBar> {
     BuildContext context,
     Color primaryColor,
   ) {
-    return [
+    // Filter out offline options for local songs
+    final baseItems = [
       PopupMenuItem<String>(
         value: 'play_next',
         child: Row(
@@ -246,25 +267,26 @@ class _SongBarState extends State<SongBar> {
           ],
         ),
       ),
-      PopupMenuItem<String>(
-        value: 'like',
-        child: ValueListenableBuilder<bool>(
-          valueListenable: _songLikeStatus,
-          builder: (_, value, __) {
-            return Row(
-              children: [
-                Icon(likeStatusToIconMapper[value], color: primaryColor),
-                const SizedBox(width: 8),
-                Text(
-                  value
-                      ? context.l10n!.removeFromLikedSongs
-                      : context.l10n!.addToLikedSongs,
-                ),
-              ],
-            );
-          },
+      if (!_isLocalSong) // Only show like option for non-local songs
+        PopupMenuItem<String>(
+          value: 'like',
+          child: ValueListenableBuilder<bool>(
+            valueListenable: _songLikeStatus,
+            builder: (_, value, __) {
+              return Row(
+                children: [
+                  Icon(likeStatusToIconMapper[value], color: primaryColor),
+                  const SizedBox(width: 8),
+                  Text(
+                    value
+                        ? context.l10n!.removeFromLikedSongs
+                        : context.l10n!.addToLikedSongs,
+                  ),
+                ],
+              );
+            },
+          ),
         ),
-      ),
       if (widget.onRemove != null)
         PopupMenuItem<String>(
           value: 'remove',
@@ -297,31 +319,34 @@ class _SongBarState extends State<SongBar> {
             ],
           ),
         ),
-      PopupMenuItem<String>(
-        value: 'offline',
-        child: ValueListenableBuilder<bool>(
-          valueListenable: _songOfflineStatus,
-          builder: (_, value, __) {
-            return Row(
-              children: [
-                Icon(
-                  value
-                      ? FluentIcons.cellular_off_24_regular
-                      : FluentIcons.cellular_data_1_24_regular,
-                  color: primaryColor,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  value
-                      ? context.l10n!.removeOffline
-                      : context.l10n!.makeOffline,
-                ),
-              ],
-            );
-          },
+      if (!_isLocalSong) // Only show offline option for non-local songs
+        PopupMenuItem<String>(
+          value: 'offline',
+          child: ValueListenableBuilder<bool>(
+            valueListenable: _songOfflineStatus,
+            builder: (_, value, __) {
+              return Row(
+                children: [
+                  Icon(
+                    value
+                        ? FluentIcons.cellular_off_24_regular
+                        : FluentIcons.cellular_data_1_24_regular,
+                    color: primaryColor,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    value
+                        ? context.l10n!.removeOffline
+                        : context.l10n!.makeOffline,
+                  ),
+                ],
+              );
+            },
+          ),
         ),
-      ),
     ];
+
+    return baseItems.whereType<PopupMenuEntry<String>>().toList();
   }
 }
 
@@ -358,101 +383,6 @@ class _SongInfo extends StatelessWidget {
             color: secondaryColor,
           ),
         ),
-      ],
-    );
-  }
-}
-
-class _OfflineArtwork extends StatelessWidget {
-  const _OfflineArtwork({required this.artworkPath, required this.size});
-
-  final String artworkPath;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: size,
-      height: size,
-      child: ClipRRect(
-        borderRadius: commonBarRadius,
-        child: Image.file(File(artworkPath), fit: BoxFit.cover),
-      ),
-    );
-  }
-}
-
-class _OnlineArtwork extends StatelessWidget {
-  const _OnlineArtwork({
-    required this.lowResImageUrl,
-    required this.size,
-    required this.isDurationAvailable,
-    required this.primaryColor,
-    required this.duration,
-  });
-
-  final String lowResImageUrl;
-  final double size;
-  final bool isDurationAvailable;
-  final Color primaryColor;
-  final dynamic duration;
-
-  @override
-  Widget build(BuildContext context) {
-    final isImageSmall = lowResImageUrl.contains('default.jpg');
-
-    return Stack(
-      alignment: Alignment.center,
-      children: <Widget>[
-        CachedNetworkImage(
-          key: ValueKey(lowResImageUrl),
-          width: size,
-          height: size,
-          imageUrl: lowResImageUrl,
-          memCacheWidth:
-              (size * MediaQuery.of(context).devicePixelRatio).round(),
-          memCacheHeight:
-              (size * MediaQuery.of(context).devicePixelRatio).round(),
-          imageBuilder:
-              (context, imageProvider) => SizedBox(
-                width: size,
-                height: size,
-                child: ClipRRect(
-                  borderRadius: commonBarRadius,
-                  child: Image(
-                    color:
-                        isDurationAvailable
-                            ? Theme.of(context).colorScheme.primaryContainer
-                            : null,
-                    colorBlendMode:
-                        isDurationAvailable ? BlendMode.multiply : null,
-                    opacity:
-                        isDurationAvailable
-                            ? const AlwaysStoppedAnimation(0.45)
-                            : null,
-                    image: imageProvider,
-                    centerSlice:
-                        isImageSmall ? const Rect.fromLTRB(1, 1, 1, 1) : null,
-                  ),
-                ),
-              ),
-          errorWidget:
-              (context, url, error) => const NullArtworkWidget(iconSize: 30),
-        ),
-        if (isDurationAvailable)
-          SizedBox(
-            width: size - 10,
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                '(${formatDuration(duration)})',
-                style: TextStyle(
-                  color: primaryColor,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
       ],
     );
   }

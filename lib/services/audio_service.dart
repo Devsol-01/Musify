@@ -645,17 +645,19 @@ class MusifyAudioHandler extends BaseAudioHandler {
 
   Future<bool> playSong(Map song) async {
     try {
-      if (song['ytid'] == null || song['ytid'].toString().isEmpty) {
-        logger.log('Invalid song data: missing ytid', null, null);
+      if ((song['ytid'] == null || song['ytid'].toString().isEmpty) &&
+          (song['audioPath'] == null || song['audioPath'].toString().isEmpty)) {
+        logger.log('Invalid song data: missing ytid and audioPath', null, null);
         return false;
       }
 
       _lastError = null;
       final isOffline = song['isOffline'] ?? false;
+      final isLocal = song['isLocal'] ?? false;
 
       if (audioPlayer.playing) await audioPlayer.stop();
 
-      final songUrl = await _getSongUrl(song, isOffline);
+      final songUrl = await _getSongUrl(song, isOffline || isLocal);
 
       if (songUrl == null || songUrl.isEmpty) {
         logger.log('Failed to get song URL for ${song['ytid']}', null, null);
@@ -663,7 +665,11 @@ class MusifyAudioHandler extends BaseAudioHandler {
         return false;
       }
 
-      final audioSource = await buildAudioSource(song, songUrl, isOffline);
+      final audioSource = await buildAudioSource(
+        song,
+        songUrl,
+        isOffline || isLocal,
+      );
       if (audioSource == null) {
         logger.log(
           'Failed to build audio source for ${song['ytid']}',
@@ -678,7 +684,7 @@ class MusifyAudioHandler extends BaseAudioHandler {
         song,
         audioSource,
         songUrl,
-        isOffline,
+        isOffline || isLocal,
       );
     } catch (e, stackTrace) {
       logger.log('Error playing song', e, stackTrace);

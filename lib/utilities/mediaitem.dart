@@ -29,6 +29,8 @@ Map mediaItemToMap(MediaItem mediaItem) => {
   'title': mediaItem.title,
   'highResImage': mediaItem.artUri.toString(),
   'lowResImage': mediaItem.extras!['lowResImage'],
+  'imageBase64': mediaItem.extras?['imageBase64'],
+  'isLocal': mediaItem.extras?['isLocal'] == true,
   'isLive': mediaItem.extras!['isLive'],
 };
 
@@ -48,6 +50,8 @@ MediaItem mapToMediaItem(Map song) => MediaItem(
     'ytid': song['ytid'],
     'isLive': song['isLive'],
     'isOffline': song['isOffline'],
+    'imageBase64': song['imageBase64'],
+    'isLocal': song['isLocal'] == true,
     'artWorkPath': song['highResImage'].toString(),
   },
 );

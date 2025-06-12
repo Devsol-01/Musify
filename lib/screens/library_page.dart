@@ -23,6 +23,8 @@ import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:musify/API/musify.dart';
 import 'package:musify/extensions/l10n.dart';
+import 'package:musify/screens/playlist_page.dart';
+import 'package:musify/services/music_service.dart';
 import 'package:musify/services/playlist_download_service.dart';
 import 'package:musify/services/router_service.dart';
 import 'package:musify/services/settings_manager.dart';
@@ -95,6 +97,30 @@ class _LibraryPageState extends State<LibraryPage> {
             onPressed:
                 () => NavigationManager.router.go('/library/userSongs/liked'),
             cubeIcon: FluentIcons.music_note_2_24_regular,
+            showBuildActions: false,
+          ),
+          PlaylistBar(
+            'All Songs',
+            onPressed: () async {
+              final fetchedSongs = await MusicService.getSongs();
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder:
+                      (context) => PlaylistPage(
+                        playlistData: {
+                          'title': 'All Songs',
+                          'image': null,
+                          'list': fetchedSongs,
+                          'source': 'local-device',
+                          'ytid': null,
+                        },
+                        cubeIcon: FluentIcons.music_note_2_24_filled,
+                      ),
+                ),
+              );
+            },
+            cubeIcon: FluentIcons.music_note_2_24_filled,
             showBuildActions: false,
           ),
           PlaylistBar(

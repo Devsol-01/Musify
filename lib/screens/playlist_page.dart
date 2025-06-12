@@ -652,12 +652,14 @@ class _PlaylistPageState extends State<PlaylistPage> {
               }
               : null,
       onPlay:
-          () => {
-            audioHandler.playPlaylistSong(
-              playlist: activePlaylist != _playlist ? _playlist : null,
-              songIndex: index,
-            ),
-          },
+          _playlist['source'] != 'local-device'
+              ? () => {
+                audioHandler.playPlaylistSong(
+                  playlist: activePlaylist != _playlist ? _playlist : null,
+                  songIndex: index,
+                ),
+              }
+              : null,
       isSongOffline: playlistOfflineStatus,
       borderRadius: borderRadius,
     );
